@@ -16,9 +16,14 @@ type TextMessage struct {
 	MentionedMobileList []string `json:"mentioned_mobile_list,omitempty"`
 }
 
+type MarkdownMessage struct {
+	Content string `json:"content"`
+}
+
 type Message struct {
-	Msgtype string       `json:"msgtype"`
-	Text    *TextMessage `json:"text,omitempty"`
+	Msgtype  string           `json:"msgtype"`
+	Text     *TextMessage     `json:"text,omitempty"`
+	Markdown *MarkdownMessage `json:"markdown,omitempty"`
 }
 
 type Response struct {
@@ -37,10 +42,10 @@ func (wb *WeBot) Client() *req.Client {
 	return wb.client
 }
 
-func (wb *WeBot) SendText(msg *TextMessage) (resp *Response, err error) {
+func (wb *WeBot) Send(msg *Message) (resp *Response, err error) {
 	resp = &Response{}
 	r, err := wb.client.R().
-		SetBodyJsonMarshal(&Message{Msgtype: "text", Text: msg}).
+		SetBodyJsonMarshal(msg).
 		EnableDumpWithoutRequest().
 		SetResult(resp).
 		Post(wb.webhookURL)
@@ -49,11 +54,31 @@ func (wb *WeBot) SendText(msg *TextMessage) (resp *Response, err error) {
 	}
 	if !r.IsSuccess() {
 		err = fmt.Errorf("bad response:\n%s", r.Dump())
-	} else {
-		fmt.Println("sccess:")
-		fmt.Println(r.Dump())
 	}
 	return
+}
+
+func (wb *WeBot) SendMarkdownContent(markdown string) (resp *Response, err error) {
+	return wb.SendMarkdown(&MarkdownMessage{
+		Content: markdown,
+	})
+}
+
+func (wb *WeBot) SendMarkdown(markdown *MarkdownMessage) (resp *Response, err error) {
+	msg := &Message{Msgtype: "markdown", Markdown: markdown}
+	return wb.Send(msg)
+}
+
+func (wb *WeBot) SendText(text *TextMessage) (resp *Response, err error) {
+	msg := &Message{Msgtype: "text", Text: text}
+	return wb.Send(msg)
+}
+
+func (wb *WeBot) SendTextContent(text string) (resp *Response, err error) {
+	msg := &TextMessage{
+		Content: text,
+	}
+	return wb.SendText(msg)
 }
 
 func (wb *WeBot) Debug(debug bool) {
