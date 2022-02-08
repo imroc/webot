@@ -39,9 +39,10 @@ bot.Debug(true) // 开启调试，可以看到所有请求和响应内容
 
 // 发送文本消息
 content := `
-实时新增用户反馈<font color=\"warning\">132例</font>，请相关同事注意。
-> 类型:<font color=\"comment\">用户反馈</font>
-> 普通用户反馈:<font color=\"comment\">117例</font>
-> VIP用户反馈:<font color=\"comment\">15例</font>`
+新增 <font color="warning">3个</font> 新客户:
+1. 小霸王电脑公司 - 已消费 <font color="green">22000</font> 元
+2. 富贵鸟皮鞋公司 - 已消费 <font color="green">18000</font> 元
+3. 帝王大酒店 - 已消费 <font color="green">3000</font> 元
+`
 resp, err := bot.SendMarkdownContent(content)
 ```
