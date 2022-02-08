@@ -1,4 +1,6 @@
-# webot - 企业微信机器人 SDK
+# webot - 企业微信机器人 golang SDK
+
+webot 是根据企业微信机器人 [官方API文档](https://developer.work.weixin.qq.com/document/path/91770)，基于 [req](https://github.com/imroc/req) 封装的 golang SDK。
 
 ## 快速上手
 
