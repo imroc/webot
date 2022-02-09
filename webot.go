@@ -1,13 +1,17 @@
 package webot
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/imroc/req/v3"
+	"strconv"
+	"strings"
 )
 
 type WeBot struct {
 	client     *req.Client
 	webhookURL string
+	uploadURL  string
 }
 
 type TextMessage struct {
@@ -24,11 +28,23 @@ type Message struct {
 	Msgtype  string           `json:"msgtype"`
 	Text     *TextMessage     `json:"text,omitempty"`
 	Markdown *MarkdownMessage `json:"markdown,omitempty"`
+	File     *FileMessage     `json:"file,omitempty"`
 }
 
 type Response struct {
 	Errcode int    `json:"errcode"`
 	Errmsg  string `json:"errmsg"`
+}
+
+type UploadResponse struct {
+	Response
+	Type      string `json:"type"`
+	MediaId   string `json:"media_id"`
+	CreatedAt string `json:"created_at"`
+}
+
+type FileMessage struct {
+	MediaId string `json:"media_id"`
 }
 
 func New(webhoookURL string) *WeBot {
@@ -40,6 +56,14 @@ func New(webhoookURL string) *WeBot {
 
 func (wb *WeBot) Client() *req.Client {
 	return wb.client
+}
+
+func (wb *WeBot) getUploadURL() string {
+	if wb.uploadURL != "" {
+		return wb.uploadURL
+	}
+	wb.uploadURL = strings.ReplaceAll(wb.webhookURL, "webhook/send", "webhook/upload_media")
+	return wb.uploadURL
 }
 
 func (wb *WeBot) Send(msg *Message) (resp *Response, err error) {
@@ -54,6 +78,51 @@ func (wb *WeBot) Send(msg *Message) (resp *Response, err error) {
 	}
 	if !r.IsSuccess() {
 		err = fmt.Errorf("bad response:\n%s", r.Dump())
+		return
+	}
+	if resp.Errcode != 0 {
+		err = fmt.Errorf(resp.Errmsg)
+	}
+	return
+}
+
+func (wb *WeBot) SendFileContent(filename string, content []byte) (resp *Response, err error) {
+	upload, err := wb.Upload(filename, content)
+	if err != nil {
+		return
+	}
+	file := &FileMessage{
+		MediaId: upload.MediaId,
+	}
+	return wb.Send(&Message{
+		Msgtype: "file",
+		File:    file,
+	})
+}
+
+func (wb *WeBot) Upload(filename string, data []byte) (resp *UploadResponse, err error) {
+	resp = &UploadResponse{}
+	cd := new(req.ContentDisposition)
+	cd.Add("filelength", strconv.Itoa(len(data)))
+	r, err := wb.client.R().
+		SetFileUpload(req.FileUpload{
+			ParamName:               "media",
+			FileName:                filename,
+			File:                    bytes.NewReader(data),
+			ExtraContentDisposition: cd,
+		}).EnableDumpWithoutRequest().
+		SetQueryParam("type", "file").
+		SetResult(resp).
+		Post(wb.getUploadURL())
+	if err != nil {
+		return
+	}
+	if !r.IsSuccess() {
+		err = fmt.Errorf("bad response:\n%s", r.Dump())
+		return
+	}
+	if resp.Errcode != 0 {
+		err = fmt.Errorf(resp.Errmsg)
 	}
 	return
 }
