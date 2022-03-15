@@ -1,0 +1,17 @@
+<xml>
+    <WebhookUrl> <![CDATA[https://qyapi.weixin.qq.com/xxxxxxx]]></WebhookUrl>
+    <ChatId><![CDATA[wrkSFfCgAALFgnrSsWU38puiv4yvExuw]]></ChatId>
+    <PostId><![CDATA[bpkSFfCgAAWeiHos2p6lJbG3_F2xxxxx]]></PostId>
+    <ChatType>single</ChatType>
+    <GetChatInfoUrl><![CDATA[https://qyapi.weixin.qq.com/cgi-bin/webhook/get_chat_info?code=m49c5aRCdEP8_QQdZmTNR52yJ5TLGcIMzaLJk3x5KqY]]></GetChatInfoUrl>
+    <From>
+        <UserId>zhangsan</UserId>
+        <Name><![CDATA[张三]]></Name>
+        <Alias><![CDATA[jackzhang]]></Alias>
+    </From>
+    <MsgType>text</MsgType>
+    <Text>
+        <Content><![CDATA[@RobotA hello robot]]></Content>
+    </Text>
+    <MsgId>abcdabcdabcd</MsgId>
+</xml>

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/imroc/req/v3"
+	"io"
 	"strconv"
 	"strings"
 )
@@ -25,10 +26,40 @@ type MarkdownMessage struct {
 }
 
 type Message struct {
-	Msgtype  string           `json:"msgtype"`
-	Text     *TextMessage     `json:"text,omitempty"`
-	Markdown *MarkdownMessage `json:"markdown,omitempty"`
-	File     *FileMessage     `json:"file,omitempty"`
+	Msgtype       string           `json:"msgtype"`
+	Text          *TextMessage     `json:"text,omitempty"`
+	Markdown      *MarkdownMessage `json:"markdown,omitempty"`
+	File          *FileMessage     `json:"file,omitempty"`
+	Chatid        string           `json:"chatid,omitempty"`
+	PostId        string           `json:"post_id,omitempty"`
+	VisibleToUser string           `json:"visible_to_user,omitempty"`
+}
+
+type MessageOption func(*Message)
+
+func WithChatId(chatId string) MessageOption {
+	return func(msg *Message) {
+		msg.Chatid = chatId
+	}
+}
+
+func WithPostId(postId string) MessageOption {
+	return func(msg *Message) {
+		msg.PostId = postId
+	}
+}
+
+func WithVisibleToUser(visibleToUser string) MessageOption {
+	return func(msg *Message) {
+		msg.VisibleToUser = visibleToUser
+	}
+}
+
+func WithReplyCallbackMessage(cm *CallbackMessage) MessageOption {
+	return func(msg *Message) {
+		msg.Chatid = cm.ChatId
+		msg.PostId = cm.PostId
+	}
 }
 
 type Response struct {
@@ -66,7 +97,10 @@ func (wb *WeBot) getUploadURL() string {
 	return wb.uploadURL
 }
 
-func (wb *WeBot) Send(msg *Message) (resp *Response, err error) {
+func (wb *WeBot) Send(msg *Message, opts ...MessageOption) (resp *Response, err error) {
+	for _, opt := range opts {
+		opt(msg)
+	}
 	resp = &Response{}
 	r, err := wb.client.R().
 		SetBodyJsonMarshal(msg).
@@ -106,9 +140,11 @@ func (wb *WeBot) Upload(filename string, data []byte) (resp *UploadResponse, err
 	cd.Add("filelength", strconv.Itoa(len(data)))
 	r, err := wb.client.R().
 		SetFileUpload(req.FileUpload{
-			ParamName:               "media",
-			FileName:                filename,
-			File:                    bytes.NewReader(data),
+			ParamName: "media",
+			FileName:  filename,
+			GetFileContent: func() (io.ReadCloser, error) {
+				return io.NopCloser(bytes.NewReader(data)), nil
+			},
 			ExtraContentDisposition: cd,
 		}).EnableDumpWithoutRequest().
 		SetQueryParam("type", "file").
@@ -133,21 +169,21 @@ func (wb *WeBot) SendMarkdownContent(markdown string) (resp *Response, err error
 	})
 }
 
-func (wb *WeBot) SendMarkdown(markdown *MarkdownMessage) (resp *Response, err error) {
+func (wb *WeBot) SendMarkdown(markdown *MarkdownMessage, opts ...MessageOption) (resp *Response, err error) {
 	msg := &Message{Msgtype: "markdown", Markdown: markdown}
-	return wb.Send(msg)
+	return wb.Send(msg, opts...)
 }
 
-func (wb *WeBot) SendText(text *TextMessage) (resp *Response, err error) {
+func (wb *WeBot) SendText(text *TextMessage, opts ...MessageOption) (resp *Response, err error) {
 	msg := &Message{Msgtype: "text", Text: text}
-	return wb.Send(msg)
+	return wb.Send(msg, opts...)
 }
 
-func (wb *WeBot) SendTextContent(text string) (resp *Response, err error) {
+func (wb *WeBot) SendTextContent(text string, opts ...MessageOption) (resp *Response, err error) {
 	msg := &TextMessage{
 		Content: text,
 	}
-	return wb.SendText(msg)
+	return wb.SendText(msg, opts...)
 }
 
 func (wb *WeBot) Debug(debug bool) {
