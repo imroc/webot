@@ -99,6 +99,12 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		body, err = s.wxcpt.DecryptMsg(msg_signature, timestamp, nonce, body)
+		if err != nil {
+			s.log.Errorf("failed to decrypt message: %s", err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		s.log.Infof("received body: \n%s", string(body))
 	case "GET":
 		if echostr != "" {
