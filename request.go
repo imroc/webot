@@ -29,12 +29,12 @@ func (r *Request) Send() (err error) {
 	res, err := r.
 		SetBodyJsonMarshal(r.msg).
 		EnableDumpWithoutRequest().
-		SetResult(resp).
+		SetSuccessResult(resp).
 		Post(r.webhookUrl)
 	if err != nil {
 		return
 	}
-	if !res.IsSuccess() || resp.Errcode != 0 {
+	if !res.IsSuccessState() || resp.Errcode != 0 {
 		err = fmt.Errorf("bad response:\n%s", res.Dump())
 		return
 	}
@@ -69,12 +69,12 @@ func (r *Request) Upload(filename string, data []byte) (resp *UploadResponse, er
 			ExtraContentDisposition: cd,
 		}).EnableDumpWithoutRequest().
 		SetQueryParam("type", "file").
-		SetResult(resp).
+		SetSuccessResult(resp).
 		Post(uploadUrl)
 	if err != nil {
 		return
 	}
-	if !res.IsSuccess() || resp.Errcode != 0 {
+	if !res.IsSuccessState() || resp.Errcode != 0 {
 		err = fmt.Errorf("bad response:\n%s", res.Dump())
 		return
 	}
