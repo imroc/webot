@@ -36,30 +36,3 @@ type SendMessage struct {
 	PostId        string           `json:"post_id,omitempty"`
 	VisibleToUser string           `json:"visible_to_user,omitempty"`
 }
-
-type SendMessageOption func(*SendMessage)
-
-func WithChatId(chatId string) SendMessageOption {
-	return func(msg *SendMessage) {
-		msg.Chatid = chatId
-	}
-}
-
-func WithPostId(postId string) SendMessageOption {
-	return func(msg *SendMessage) {
-		msg.PostId = postId
-	}
-}
-
-func WithVisibleToUser(visibleToUser string) SendMessageOption {
-	return func(msg *SendMessage) {
-		msg.VisibleToUser = visibleToUser
-	}
-}
-
-func WithReplyCallbackMessage(cm *CallbackMessage) SendMessageOption {
-	return func(msg *SendMessage) {
-		msg.Chatid = cm.ChatId
-		msg.PostId = cm.PostId
-	}
-}

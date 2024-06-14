@@ -24,8 +24,8 @@ func (c *Client) NewRequest(webhookUrl string) *Request {
 	}
 }
 
-func (r *Request) Send() (resp *Response, err error) {
-	resp = &Response{}
+func (r *Request) Send() (err error) {
+	resp := &Response{}
 	res, err := r.
 		SetBodyJsonMarshal(r.msg).
 		EnableDumpWithoutRequest().
@@ -41,7 +41,7 @@ func (r *Request) Send() (resp *Response, err error) {
 	return
 }
 
-func (r *Request) SendFileContent(filename string, content []byte) (resp *Response, err error) {
+func (r *Request) SendFileContent(filename string, content []byte) (err error) {
 	upload, err := r.Upload(filename, content)
 	if err != nil {
 		return
@@ -81,26 +81,14 @@ func (r *Request) Upload(filename string, data []byte) (resp *UploadResponse, er
 	return
 }
 
-func (r *Request) SendMarkdownString(markdown string) (resp *Response, err error) {
-	return r.SendMarkdown(&MarkdownMessage{
-		Content: markdown,
-	})
-}
-
-func (r *Request) SendMarkdown(markdown *MarkdownMessage) (resp *Response, err error) {
+func (r *Request) SendMarkdown(markdown *MarkdownMessage) (err error) {
 	r.msg.Msgtype = SendMessageTypeMarkdown
 	r.msg.Markdown = markdown
 	return r.Send()
 }
 
-func (r *Request) SendText(text *TextMessage) (resp *Response, err error) {
+func (r *Request) SendText(text *TextMessage) (err error) {
 	r.msg.Msgtype = SendMessageTypeText
 	r.msg.Text = text
 	return r.Send()
-}
-
-func (r *Request) SendTextString(text string) (resp *Response, err error) {
-	return r.SendText(&TextMessage{
-		Content: text,
-	})
 }
