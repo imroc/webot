@@ -1,4 +1,4 @@
-package wxbizjsonmsgcrypt
+package wxbizmsgcrypt
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -18,7 +18,7 @@ const letterBytes = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 
 const (
 	ValidateSignatureError int = -40001
-	ParseJsonError         int = -40002
+	ParseXmlError          int = -40002
 	ComputeSignatureError  int = -40003
 	IllegalAesKey          int = -40004
 	ValidateCorpidError    int = -40005
@@ -27,14 +27,16 @@ const (
 	IllegalBuffer          int = -40008
 	EncodeBase64Error      int = -40009
 	DecodeBase64Error      int = -40010
-	GenJsonError           int = -40011
-	IllegalProtocolType    int = -40012
+	GenXmlError            int = -40010
+	ParseJsonError         int = -40012
+	GenJsonError           int = -40013
+	IllegalProtocolType    int = -40014
 )
 
 type ProtocolType int
 
 const (
-	JsonType ProtocolType = 1
+	XmlType ProtocolType = 1
 )
 
 type CryptError struct {
@@ -42,30 +44,39 @@ type CryptError struct {
 	ErrMsg  string
 }
 
+func (e *CryptError) Error() string {
+	return fmt.Sprintf("crypt error(%d): %s", e.ErrCode, e.ErrMsg)
+}
+
 func NewCryptError(err_code int, err_msg string) *CryptError {
 	return &CryptError{ErrCode: err_code, ErrMsg: err_msg}
 }
 
-type WXBizJsonMsg4Recv struct {
-	Tousername string `json:"tousername"`
-	Encrypt    string `json:"encrypt"`
-	Agentid    string `json:"agentid"`
+type WXBizMsg4Recv struct {
+	Tousername string `xml:"ToUserName"`
+	Encrypt    string `xml:"Encrypt"`
+	Agentid    string `xml:"AgentID"`
 }
 
-type WXBizJsonMsg4Send struct {
-	Encrypt   string `json:"encrypt"`
-	Signature string `json:"msgsignature"`
-	Timestamp string `json:"timestamp"`
-	Nonce     string `json:"nonce"`
+type CDATA struct {
+	Value string `xml:",cdata"`
 }
 
-func NewWXBizJsonMsg4Send(encrypt, signature, timestamp, nonce string) *WXBizJsonMsg4Send {
-	return &WXBizJsonMsg4Send{Encrypt: encrypt, Signature: signature, Timestamp: timestamp, Nonce: nonce}
+type WXBizMsg4Send struct {
+	XMLName   xml.Name `xml:"xml"`
+	Encrypt   CDATA    `xml:"Encrypt"`
+	Signature CDATA    `xml:"MsgSignature"`
+	Timestamp string   `xml:"TimeStamp"`
+	Nonce     CDATA    `xml:"Nonce"`
+}
+
+func NewWXBizMsg4Send(encrypt, signature, timestamp, nonce string) *WXBizMsg4Send {
+	return &WXBizMsg4Send{Encrypt: CDATA{Value: encrypt}, Signature: CDATA{Value: signature}, Timestamp: timestamp, Nonce: CDATA{Value: nonce}}
 }
 
 type ProtocolProcessor interface {
-	parse(src_data []byte) (*WXBizJsonMsg4Recv, *CryptError)
-	serialize(msg_send *WXBizJsonMsg4Send) ([]byte, *CryptError)
+	parse(src_data []byte) (*WXBizMsg4Recv, *CryptError)
+	serialize(msg_send *WXBizMsg4Send) ([]byte, *CryptError)
 }
 
 type WXBizMsgCrypt struct {
@@ -75,33 +86,31 @@ type WXBizMsgCrypt struct {
 	protocol_processor ProtocolProcessor
 }
 
-type JsonProcessor struct{}
+type XmlProcessor struct{}
 
-func (self *JsonProcessor) parse(src_data []byte) (*WXBizJsonMsg4Recv, *CryptError) {
-	var msg4_recv WXBizJsonMsg4Recv
-	err := json.Unmarshal(src_data, &msg4_recv)
+func (self *XmlProcessor) parse(src_data []byte) (*WXBizMsg4Recv, *CryptError) {
+	var msg4_recv WXBizMsg4Recv
+	err := xml.Unmarshal(src_data, &msg4_recv)
 	if nil != err {
-		fmt.Println("Unmarshal fail", err)
-		return nil, NewCryptError(ParseJsonError, "json to msg fail")
+		return nil, NewCryptError(ParseXmlError, "xml to msg fail")
 	}
 	return &msg4_recv, nil
 }
 
-func (self *JsonProcessor) serialize(msg4_send *WXBizJsonMsg4Send) ([]byte, *CryptError) {
-	json_msg, err := json.Marshal(msg4_send)
+func (self *XmlProcessor) serialize(msg4_send *WXBizMsg4Send) ([]byte, *CryptError) {
+	xml_msg, err := xml.Marshal(msg4_send)
 	if nil != err {
-		return nil, NewCryptError(GenJsonError, err.Error())
+		return nil, NewCryptError(GenXmlError, err.Error())
 	}
-
-	return json_msg, nil
+	return xml_msg, nil
 }
 
 func NewWXBizMsgCrypt(token, encoding_aeskey, receiver_id string, protocol_type ProtocolType) *WXBizMsgCrypt {
 	var protocol_processor ProtocolProcessor
-	if protocol_type != JsonType {
+	if protocol_type != XmlType {
 		panic("unsupport protocal")
 	} else {
-		protocol_processor = new(JsonProcessor)
+		protocol_processor = new(XmlProcessor)
 	}
 
 	return &WXBizMsgCrypt{token: token, encoding_aeskey: (encoding_aeskey + "="), receiver_id: receiver_id, protocol_processor: protocol_processor}
@@ -275,7 +284,7 @@ func (self *WXBizMsgCrypt) EncryptMsg(reply_msg, timestamp, nonce string) ([]byt
 
 	signature := self.calSignature(timestamp, nonce, ciphertext)
 
-	msg4_send := NewWXBizJsonMsg4Send(ciphertext, signature, timestamp, nonce)
+	msg4_send := NewWXBizMsg4Send(ciphertext, signature, timestamp, nonce)
 	return self.protocol_processor.serialize(msg4_send)
 }
 

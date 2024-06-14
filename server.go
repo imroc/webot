@@ -7,8 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/imroc/webot/internal/util"
-	"github.com/imroc/webot/internal/wxbizjsonmsgcrypt"
+	"github.com/imroc/webot/internal/wxbizmsgcrypt"
 )
 
 type MessageType string
@@ -23,7 +22,7 @@ const (
 
 type Server struct {
 	log             Logger
-	wxcpt           *wxbizjsonmsgcrypt.WXBizMsgCrypt
+	wxcpt           *wxbizmsgcrypt.WXBizMsgCrypt
 	messageHandlers map[MessageType]MessageHandler
 	client          *Client
 	token           string
@@ -35,7 +34,7 @@ func NewServer(client *Client, token, encodingAeskey, robotName string) *Server 
 	return &Server{
 		token:           token,
 		encodingAeskey:  encodingAeskey,
-		wxcpt:           wxbizjsonmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, "", wxbizjsonmsgcrypt.JsonType),
+		wxcpt:           wxbizmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, "", wxbizmsgcrypt.XmlType),
 		log:             createDefaultLogger(),
 		client:          client,
 		messageHandlers: map[MessageType]MessageHandler{},
@@ -45,7 +44,7 @@ func NewServer(client *Client, token, encodingAeskey, robotName string) *Server 
 func (s *Server) verifyURL(msgSignature, timestamp, nonce, echoStr string) ([]byte, error) {
 	result, err := s.wxcpt.VerifyURL(msgSignature, timestamp, nonce, echoStr)
 	if err != nil {
-		return nil, util.ConvertCryptError(err)
+		return nil, err
 	}
 	return result, nil
 }
@@ -53,7 +52,7 @@ func (s *Server) verifyURL(msgSignature, timestamp, nonce, echoStr string) ([]by
 func (s *Server) DecryptJsonMsg(msgSignature, timestamp, nonce string, data []byte) (msg *CallbackMessage, err error) {
 	rawMsg, cryptErr := s.wxcpt.DecryptMsg(msgSignature, timestamp, nonce, data)
 	if cryptErr != nil {
-		return nil, util.ConvertCryptError(cryptErr)
+		return nil, cryptErr
 	}
 	msg = &CallbackMessage{}
 	err = xml.Unmarshal(rawMsg, &msg)
@@ -101,17 +100,17 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		body, cryptErr := s.wxcpt.DecryptMsg(msg_signature, timestamp, nonce, body)
 		if cryptErr != nil {
-			s.log.Errorf("failed to decrypt message: %s", util.ConvertCryptError(cryptErr).Error())
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			s.log.Errorf("failed to decrypt message: %s", cryptErr.Error())
+			http.Error(w, cryptErr.Error(), http.StatusBadRequest)
 			return
 		}
 		s.log.Infof("received body: \n%s", string(body))
 	case "GET":
 		if echostr != "" {
-			echostr, err := s.verifyURL(msg_signature, timestamp, nonce, echostr)
-			if err != nil {
-				s.log.Errorf("failed to verify url: %s", err.Error())
-				http.Error(w, err.Error(), http.StatusBadRequest)
+			echostr, cryptErr := s.verifyURL(msg_signature, timestamp, nonce, echostr)
+			if cryptErr != nil {
+				s.log.Errorf("failed to verify url: %s", cryptErr.Error())
+				http.Error(w, cryptErr.Error(), http.StatusBadRequest)
 			} else {
 				s.log.Infof("verifyUrl success echostr: %s", echostr)
 				w.Write(echostr)
