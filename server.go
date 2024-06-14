@@ -6,38 +6,30 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/imroc/webot/internal/wxbizmsgcrypt"
 )
 
-type MessageType string
-
-const (
-	MessageTypeText       MessageType = "text"
-	MessageTypeAttachment MessageType = "attachment"
-	MessageTypeImage      MessageType = "image"
-	MessageTypeMixed      MessageType = "mixed"
-	MessageTypeEvent      MessageType = "event"
-)
-
 type Server struct {
-	log             Logger
-	wxcpt           *wxbizmsgcrypt.WXBizMsgCrypt
-	messageHandlers map[MessageType]MessageHandler
-	client          *Client
-	token           string
-	encodingAeskey  string
-	robotName       string
+	log                       Logger
+	wxcpt                     *wxbizmsgcrypt.WXBizMsgCrypt
+	client                    *Client
+	token                     string
+	encodingAeskey            string
+	robotName                 string
+	messageHandlers           []MessageHandler
+	textMessageHandlers       []TextMessageHandler
+	imageMessageHandlers      []ImageMessageHandler
+	eventMessageHandlers      []EventMessageHandler
+	attachmentMessageHandlers []AttachmentMessageHandler
 }
 
-func NewServer(client *Client, token, encodingAeskey, robotName string) *Server {
+func NewServer(token, encodingAeskey, robotName string) *Server {
 	return &Server{
-		token:           token,
-		encodingAeskey:  encodingAeskey,
-		wxcpt:           wxbizmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, "", wxbizmsgcrypt.XmlType),
-		log:             createDefaultLogger(),
-		client:          client,
-		messageHandlers: map[MessageType]MessageHandler{},
+		token:          token,
+		encodingAeskey: encodingAeskey,
+		wxcpt:          wxbizmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, "", wxbizmsgcrypt.XmlType),
+		log:            createDefaultLogger(),
+		client:         NewClient(),
 	}
 }
 
@@ -63,19 +55,36 @@ func (s *Server) DecryptJsonMsg(msgSignature, timestamp, nonce string, data []by
 }
 
 type (
-	Callback       func(body []byte, client *Client) error
-	MessageHandler func(msg *CallbackMessage, bot *Client) error
+	MessageHandler           func(client *Client, msg CallbackMessage) error
+	TextMessageHandler       func(client *Client, msg CallbackMessageCommonItem, text Text) error
+	ImageMessageHandler      func(client *Client, msg CallbackMessageCommonItem, image Image) error
+	EventMessageHandler      func(client *Client, msg CallbackMessageCommonItem, image Event) error
+	AttachmentMessageHandler func(client *Client, msg CallbackMessageCommonItem, image Attachment) error
 )
 
-func (s *Server) RegisterCallbackHandlerFunc(t MessageType, fn MessageHandler) *Server {
-	s.messageHandlers[t] = fn
+func (s *Server) HandleTextMessage(fn TextMessageHandler) *Server {
+	s.textMessageHandlers = append(s.textMessageHandlers, fn)
 	return s
 }
 
-func (s *Server) Run(addr, path string) error {
-	r := gin.Default()
-	s.AddGinRoute(r, path)
-	return r.Run(addr)
+func (s *Server) HandleImageMessage(fn ImageMessageHandler) *Server {
+	s.imageMessageHandlers = append(s.imageMessageHandlers, fn)
+	return s
+}
+
+func (s *Server) HandleEventMessage(fn EventMessageHandler) *Server {
+	s.eventMessageHandlers = append(s.eventMessageHandlers, fn)
+	return s
+}
+
+func (s *Server) HandleAttachmentMessage(fn AttachmentMessageHandler) *Server {
+	s.attachmentMessageHandlers = append(s.attachmentMessageHandlers, fn)
+	return s
+}
+
+func (s *Server) HandleMessage(fn MessageHandler) *Server {
+	s.messageHandlers = append(s.messageHandlers, fn)
+	return s
 }
 
 func (s *Server) cleanContent(content string) string {
@@ -105,6 +114,58 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.log.Infof("received body: \n%s", string(body))
+		var msg CallbackMessage
+		err = xml.Unmarshal(body, &msg)
+		if err != nil {
+			s.log.Errorf("failed to unmarshal xml message: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		for _, handler := range s.messageHandlers {
+			handler(s.client, msg)
+		}
+		switch msg.MsgType {
+		case CallbackMessageTypeText:
+			if msg.Text == nil {
+				errMsg := "no text found in text message"
+				s.log.Errorf(errMsg)
+				http.Error(w, errMsg, http.StatusBadRequest)
+				return
+			}
+			for _, handler := range s.textMessageHandlers {
+				handler(s.client, msg.CallbackMessageCommonItem, *msg.Text)
+			}
+		case CallbackMessageTypeImage:
+			if msg.Image == nil {
+				errMsg := "no image found in image message"
+				s.log.Errorf(errMsg)
+				http.Error(w, errMsg, http.StatusBadRequest)
+				return
+			}
+			for _, handler := range s.imageMessageHandlers {
+				handler(s.client, msg.CallbackMessageCommonItem, *msg.Image)
+			}
+		case CallbackMessageTypeEvent:
+			if msg.Event == nil {
+				errMsg := "no event found in event message"
+				s.log.Errorf(errMsg)
+				http.Error(w, errMsg, http.StatusBadRequest)
+				return
+			}
+			for _, handler := range s.eventMessageHandlers {
+				handler(s.client, msg.CallbackMessageCommonItem, *msg.Event)
+			}
+		case CallbackMessageTypeAttachment:
+			if msg.Attachment == nil {
+				errMsg := "no attachment found in attachment message"
+				s.log.Errorf(errMsg)
+				http.Error(w, errMsg, http.StatusBadRequest)
+				return
+			}
+			for _, handler := range s.attachmentMessageHandlers {
+				handler(s.client, msg.CallbackMessageCommonItem, *msg.Attachment)
+			}
+		}
 	case "GET":
 		if echostr != "" {
 			echostr, cryptErr := s.verifyURL(msg_signature, timestamp, nonce, echostr)
@@ -122,52 +183,4 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-}
-
-func (s *Server) AddGinRoute(e *gin.Engine, path string) {
-	e.GET(path, func(c *gin.Context) {
-		msgSignature := c.Query("msg_signature")
-		timestamp := c.Query("timestamp")
-		nonce := c.Query("nonce")
-		echoStr := c.Query("echostr")
-		result, err := s.verifyURL(msgSignature, timestamp, nonce, echoStr)
-		if err != nil {
-			s.log.Errorf("failed to verify url: %s", err.Error())
-			c.String(http.StatusBadRequest, "failed to verify url: %s", err.Error())
-			return
-		}
-		c.String(http.StatusOK, string(result))
-	})
-
-	e.POST(path, func(c *gin.Context) {
-		msgSignature := c.Query("msg_signature")
-		timestamp := c.Query("timestamp")
-		nonce := c.Query("nonce")
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			s.log.Errorf("failed to ready body: %s", err.Error())
-			c.String(http.StatusBadRequest, "failed to read body: %s", err.Error())
-			return
-		}
-		s.log.Debugf("body received: %s", string(body))
-		msg, cryptErr := s.DecryptJsonMsg(msgSignature, timestamp, nonce, body)
-		if cryptErr != nil {
-			s.log.Errorf("failed to decrypt msg: %v", cryptErr)
-			c.String(http.StatusBadRequest, "failed to decrypt msg: %v", cryptErr)
-			return
-		}
-
-		c.Status(http.StatusOK)
-
-		handle, ok := s.messageHandlers[MessageType(msg.MsgType)]
-
-		if !ok || handle == nil {
-			s.log.Debugf("ignore MsgType %q which is not registered", msg.MsgType)
-			return
-		}
-		err = handle(msg, s.client)
-		if err != nil {
-			s.log.Errorf("failed to handle msg: %s", err.Error())
-		}
-	})
 }
