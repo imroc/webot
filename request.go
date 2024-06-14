@@ -24,6 +24,12 @@ func (c *Client) NewRequest(webhookUrl string) *Request {
 	}
 }
 
+func (r *Request) Reply(msg CallbackMessageCommonItem) *Request {
+	r.msg.Chatid = msg.ChatId
+	r.msg.PostId = msg.PostId
+	return r
+}
+
 func (r *Request) Send() (err error) {
 	resp := &Response{}
 	res, err := r.
