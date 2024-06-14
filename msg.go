@@ -1,51 +1,51 @@
 package webot
 
 type From struct {
-	UserId string `xml:"UserId"`
-	Name   string `xml:"Name"`
-	Alias  string `xml:"Alias"`
+	UserId string `json:"UserId"`
+	Name   string `json:"Name"`
+	Alias  string `json:"Alias"`
 }
 
 type Text struct {
-	Content string `xml:"Content"`
+	Content string `json:"Content"`
 }
 
 type Image struct {
-	ImageUrl string `xml:"ImageUrl"`
+	ImageUrl string `json:"ImageUrl"`
 }
 
 type Event struct {
-	EventType string `xml:"EventType"`
+	EventType string `json:"EventType"`
 }
 
 type Attachment struct {
-	CallbackId string  `xml:"CallbackId"`
-	Actions    Actions `xml:"Actions"`
+	CallbackId string  `json:"CallbackId"`
+	Actions    Actions `json:"Actions"`
 }
 
 type Actions struct {
-	Name  string `xml:"Name"`
-	Value string `xml:"Value"`
-	Type  string `xml:"Type"`
+	Name  string `json:"Name"`
+	Value string `json:"Value"`
+	Type  string `json:"Type"`
 }
 
 type CallbackMessageItem struct {
-	MsgType    string      `xml:"MsgType"`
-	Text       *Text       `xml:"Text,omitempty"`
-	Image      *Image      `xml:"Image,omitempty"`
-	Event      *Event      `xml:"Event,omitempty"`
-	Attachment *Attachment `xml:"Attachment,omitempty"`
+	MsgType    string      `json:"MsgType"`
+	Text       *Text       `json:"Text,omitempty"`
+	Image      *Image      `json:"Image,omitempty"`
+	Event      *Event      `json:"Event,omitempty"`
+	Attachment *Attachment `json:"Attachment,omitempty"`
 }
 
 type CallbackMessage struct {
 	CallbackMessageItem
-	WebhookUrl     string `xml:"WebhookUrl"`
-	ChatId         string `xml:"ChatId"`
-	PostId         string `xml:"PostId"`
-	ChatType       string `xml:"ChatType"`
-	GetChatInfoUrl string `xml:"GetChatInfoUrl"`
-	MsgId          string `xml:"MsgId"`
+	WebhookUrl     string `json:"WebhookUrl"`
+	ChatId         string `json:"ChatId"`
+	PostId         string `json:"PostId"`
+	ChatType       string `json:"ChatType"`
+	GetChatInfoUrl string `json:"GetChatInfoUrl"`
+	MsgId          string `json:"MsgId"`
 	MsgType        string `json:"MsgType"`
-	From           From   `xml:"From"`
-	AppVersion     string `xml:"AppVersion"`
+	From           From   `json:"From"`
+	AppVersion     string `json:"AppVersion"`
 }

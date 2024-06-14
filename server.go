@@ -2,56 +2,58 @@ package webot
 
 import (
 	"encoding/xml"
-	"github.com/gin-gonic/gin"
-	"github.com/imroc/webot/internal/wxbizmsgcrypt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/imroc/webot/internal/util"
+	"github.com/imroc/webot/internal/wxbizjsonmsgcrypt"
 )
 
-type CallbackType string
+type MessageType string
 
 const (
-	CallbackTypeText       CallbackType = "text"
-	CallbackTypeAttachment CallbackType = "attachment"
-	CallbackTypeImage      CallbackType = "image"
-	CallbackTypeMixed      CallbackType = "mixed"
-	CallbackTypeEvent      CallbackType = "event"
+	MessageTypeText       MessageType = "text"
+	MessageTypeAttachment MessageType = "attachment"
+	MessageTypeImage      MessageType = "image"
+	MessageTypeMixed      MessageType = "mixed"
+	MessageTypeEvent      MessageType = "event"
 )
 
-type CallbackServer struct {
-	token          string
-	encodingAeskey string
-	robotName      string
-	wxcpt          *wxbizmsgcrypt.WXBizMsgCrypt
-	log            Logger
-	callbackFuncs  map[CallbackType]CallbackHandlerFunc
-	bot            *WeBot
+type Server struct {
+	log             Logger
+	wxcpt           *wxbizjsonmsgcrypt.WXBizMsgCrypt
+	messageHandlers map[MessageType]MessageHandler
+	client          *Client
+	token           string
+	encodingAeskey  string
+	robotName       string
 }
 
-func (b *WeBot) NewCallbackServer(token, encodingAeskey, robotName string) *CallbackServer {
-	return &CallbackServer{
-		token:          token,
-		encodingAeskey: encodingAeskey,
-		wxcpt:          wxbizmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, "", wxbizmsgcrypt.XmlType),
-		log:            createDefaultLogger(),
-		bot:            b,
-		callbackFuncs:  map[CallbackType]CallbackHandlerFunc{},
+func NewServer(client *Client, token, encodingAeskey, robotName string) *Server {
+	return &Server{
+		token:           token,
+		encodingAeskey:  encodingAeskey,
+		wxcpt:           wxbizjsonmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, "", wxbizjsonmsgcrypt.JsonType),
+		log:             createDefaultLogger(),
+		client:          client,
+		messageHandlers: map[MessageType]MessageHandler{},
 	}
 }
 
-func (s *CallbackServer) VerifyURL(msgSignature, timestamp, nonce, echoStr string) ([]byte, error) {
+func (s *Server) verifyURL(msgSignature, timestamp, nonce, echoStr string) ([]byte, error) {
 	result, err := s.wxcpt.VerifyURL(msgSignature, timestamp, nonce, echoStr)
 	if err != nil {
-		return nil, err
+		return nil, util.ConvertCryptError(err)
 	}
 	return result, nil
 }
 
-func (s *CallbackServer) DecryptJsonMsg(msgSignature, timestamp, nonce string, data []byte) (msg *CallbackMessage, err error) {
+func (s *Server) DecryptJsonMsg(msgSignature, timestamp, nonce string, data []byte) (msg *CallbackMessage, err error) {
 	rawMsg, cryptErr := s.wxcpt.DecryptMsg(msgSignature, timestamp, nonce, data)
 	if cryptErr != nil {
-		return nil, cryptErr
+		return nil, util.ConvertCryptError(cryptErr)
 	}
 	msg = &CallbackMessage{}
 	err = xml.Unmarshal(rawMsg, &msg)
@@ -61,31 +63,69 @@ func (s *CallbackServer) DecryptJsonMsg(msgSignature, timestamp, nonce string, d
 	return
 }
 
-type CallbackHandlerFunc func(msg *CallbackMessage, bot *WeBot) error
+type (
+	Callback       func(body []byte, client *Client) error
+	MessageHandler func(msg *CallbackMessage, bot *Client) error
+)
 
-func (s *CallbackServer) RegisterCallbackHandlerFunc(t CallbackType, fn CallbackHandlerFunc) *CallbackServer {
-	s.callbackFuncs[t] = fn
+func (s *Server) RegisterCallbackHandlerFunc(t MessageType, fn MessageHandler) *Server {
+	s.messageHandlers[t] = fn
 	return s
 }
 
-func (s *CallbackServer) Run(addr, path string) error {
+func (s *Server) Run(addr, path string) error {
 	r := gin.Default()
 	s.AddGinRoute(r, path)
 	return r.Run(addr)
 }
 
-func (s *CallbackServer) cleanContent(content string) string {
-	str := strings.Replace(content, "@"+s.robotName, "", -1)
+func (s *Server) cleanContent(content string) string {
+	str := strings.ReplaceAll(content, "@"+s.robotName, "")
 	return strings.TrimSpace(str)
 }
 
-func (s *CallbackServer) AddGinRoute(e *gin.Engine, path string) {
+func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	urlQuery := r.URL.Query()
+	msg_signature := urlQuery.Get("msg_signature")
+	timestamp := urlQuery.Get("timestamp")
+	nonce := urlQuery.Get("nonce")
+	echostr := urlQuery.Get("echostr")
+
+	switch r.Method {
+	case "POST":
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			s.log.Errorf("failed to read body: %s", err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		s.log.Infof("received body: \n%s", string(body))
+	case "GET":
+		if echostr != "" {
+			echostr, err := s.verifyURL(msg_signature, timestamp, nonce, echostr)
+			if err != nil {
+				s.log.Errorf("failed to verify url: %s", err.Error())
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			} else {
+				s.log.Infof("verifyUrl success echostr: %s", echostr)
+				w.Write(echostr)
+			}
+			return
+		} else {
+			s.log.Errorf("empty echostr in GET request")
+			http.Error(w, "empty echostr in GET request", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+func (s *Server) AddGinRoute(e *gin.Engine, path string) {
 	e.GET(path, func(c *gin.Context) {
 		msgSignature := c.Query("msg_signature")
 		timestamp := c.Query("timestamp")
 		nonce := c.Query("nonce")
 		echoStr := c.Query("echostr")
-		result, err := s.VerifyURL(msgSignature, timestamp, nonce, echoStr)
+		result, err := s.verifyURL(msgSignature, timestamp, nonce, echoStr)
 		if err != nil {
 			s.log.Errorf("failed to verify url: %s", err.Error())
 			c.String(http.StatusBadRequest, "failed to verify url: %s", err.Error())
@@ -98,7 +138,7 @@ func (s *CallbackServer) AddGinRoute(e *gin.Engine, path string) {
 		msgSignature := c.Query("msg_signature")
 		timestamp := c.Query("timestamp")
 		nonce := c.Query("nonce")
-		body, err := ioutil.ReadAll(c.Request.Body)
+		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			s.log.Errorf("failed to ready body: %s", err.Error())
 			c.String(http.StatusBadRequest, "failed to read body: %s", err.Error())
@@ -114,13 +154,13 @@ func (s *CallbackServer) AddGinRoute(e *gin.Engine, path string) {
 
 		c.Status(http.StatusOK)
 
-		handle, ok := s.callbackFuncs[CallbackType(msg.MsgType)]
+		handle, ok := s.messageHandlers[MessageType(msg.MsgType)]
 
 		if !ok || handle == nil {
 			s.log.Debugf("ignore MsgType %q which is not registered", msg.MsgType)
 			return
 		}
-		err = handle(msg, s.bot)
+		err = handle(msg, s.client)
 		if err != nil {
 			s.log.Errorf("failed to handle msg: %s", err.Error())
 		}

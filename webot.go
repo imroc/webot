@@ -3,13 +3,14 @@ package webot
 import (
 	"bytes"
 	"fmt"
-	"github.com/imroc/req/v3"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/imroc/req/v3"
 )
 
-type WeBot struct {
+type Client struct {
 	client     *req.Client
 	webhookURL string
 	uploadURL  string
@@ -78,18 +79,18 @@ type FileMessage struct {
 	MediaId string `json:"media_id"`
 }
 
-func New(webhoookURL string) *WeBot {
-	return &WeBot{
+func NewClient(webhoookURL string) *Client {
+	return &Client{
 		client:     req.C(),
 		webhookURL: webhoookURL,
 	}
 }
 
-func (wb *WeBot) Client() *req.Client {
+func (wb *Client) Client() *req.Client {
 	return wb.client
 }
 
-func (wb *WeBot) getUploadURL() string {
+func (wb *Client) getUploadURL() string {
 	if wb.uploadURL != "" {
 		return wb.uploadURL
 	}
@@ -97,7 +98,7 @@ func (wb *WeBot) getUploadURL() string {
 	return wb.uploadURL
 }
 
-func (wb *WeBot) Send(msg *Message, opts ...MessageOption) (resp *Response, err error) {
+func (wb *Client) Send(msg *Message, opts ...MessageOption) (resp *Response, err error) {
 	for _, opt := range opts {
 		opt(msg)
 	}
@@ -120,7 +121,7 @@ func (wb *WeBot) Send(msg *Message, opts ...MessageOption) (resp *Response, err 
 	return
 }
 
-func (wb *WeBot) SendFileContent(filename string, content []byte) (resp *Response, err error) {
+func (wb *Client) SendFileContent(filename string, content []byte) (resp *Response, err error) {
 	upload, err := wb.Upload(filename, content)
 	if err != nil {
 		return
@@ -134,7 +135,7 @@ func (wb *WeBot) SendFileContent(filename string, content []byte) (resp *Respons
 	})
 }
 
-func (wb *WeBot) Upload(filename string, data []byte) (resp *UploadResponse, err error) {
+func (wb *Client) Upload(filename string, data []byte) (resp *UploadResponse, err error) {
 	resp = &UploadResponse{}
 	cd := new(req.ContentDisposition)
 	cd.Add("filelength", strconv.Itoa(len(data)))
@@ -163,30 +164,30 @@ func (wb *WeBot) Upload(filename string, data []byte) (resp *UploadResponse, err
 	return
 }
 
-func (wb *WeBot) SendMarkdownContent(markdown string) (resp *Response, err error) {
+func (wb *Client) SendMarkdownContent(markdown string) (resp *Response, err error) {
 	return wb.SendMarkdown(&MarkdownMessage{
 		Content: markdown,
 	})
 }
 
-func (wb *WeBot) SendMarkdown(markdown *MarkdownMessage, opts ...MessageOption) (resp *Response, err error) {
+func (wb *Client) SendMarkdown(markdown *MarkdownMessage, opts ...MessageOption) (resp *Response, err error) {
 	msg := &Message{Msgtype: "markdown", Markdown: markdown}
 	return wb.Send(msg, opts...)
 }
 
-func (wb *WeBot) SendText(text *TextMessage, opts ...MessageOption) (resp *Response, err error) {
+func (wb *Client) SendText(text *TextMessage, opts ...MessageOption) (resp *Response, err error) {
 	msg := &Message{Msgtype: "text", Text: text}
 	return wb.Send(msg, opts...)
 }
 
-func (wb *WeBot) SendTextContent(text string, opts ...MessageOption) (resp *Response, err error) {
+func (wb *Client) SendTextContent(text string, opts ...MessageOption) (resp *Response, err error) {
 	msg := &TextMessage{
 		Content: text,
 	}
 	return wb.SendText(msg, opts...)
 }
 
-func (wb *WeBot) Debug(debug bool) {
+func (wb *Client) Debug(debug bool) {
 	if debug {
 		wb.client.EnableDumpAll().EnableDebugLog().EnableTraceAll()
 	} else {

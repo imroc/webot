@@ -12,6 +12,7 @@ type Logger interface {
 	Errorf(format string, v ...interface{})
 	Warnf(format string, v ...interface{})
 	Debugf(format string, v ...interface{})
+	Infof(format string, v ...interface{})
 }
 
 // NewLogger create a Logger wraps the *log.Logger
@@ -37,6 +38,10 @@ func (l *logger) Warnf(format string, v ...interface{}) {
 
 func (l *logger) Debugf(format string, v ...interface{}) {
 	l.output("DEBUG", format, v...)
+}
+
+func (l *logger) Infof(format string, v ...interface{}) {
+	l.output("INFO", format, v...)
 }
 
 func (l *logger) output(level, format string, v ...interface{}) {
