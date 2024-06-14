@@ -99,9 +99,9 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		body, err = s.wxcpt.DecryptMsg(msg_signature, timestamp, nonce, body)
-		if err != nil {
-			s.log.Errorf("failed to decrypt message: %s", err.Error())
+		body, cryptErr := s.wxcpt.DecryptMsg(msg_signature, timestamp, nonce, body)
+		if cryptErr != nil {
+			s.log.Errorf("failed to decrypt message: %s", util.ConvertCryptError(cryptErr).Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
