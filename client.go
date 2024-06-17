@@ -1,6 +1,8 @@
 package webot
 
 import (
+	"fmt"
+
 	"github.com/imroc/req/v3"
 )
 
@@ -17,6 +19,12 @@ func NewClient() *Client {
 				return req.SuccessState
 			}
 			return req.ErrorState
+		}).OnAfterResponse(func(client *req.Client, resp *req.Response) error {
+			if errCode := resp.GetHeader("Error-Code"); errCode == "0" {
+				return nil
+			}
+			resp.Err = fmt.Errorf("Error-Code: %s, Error-Msg: %s", resp.GetHeader("Error-Code"), resp.GetHeader("Error-Msg"))
+			return nil
 		}),
 	}
 }
