@@ -26,17 +26,3 @@ type MarkdownMessage struct {
 type FileMessage struct {
 	MediaId string `json:"media_id"`
 }
-
-type SendMessage struct {
-	Msgtype       SendMessageType  `json:"msgtype"`
-	Text          *TextMessage     `json:"text,omitempty"`
-	Markdown      *MarkdownMessage `json:"markdown,omitempty"`
-	File          *FileMessage     `json:"file,omitempty"`
-	Chatid        string           `json:"chatid,omitempty"`
-	PostId        string           `json:"post_id,omitempty"`
-	VisibleToUser string           `json:"visible_to_user,omitempty"`
-}
-
-type Layout struct {
-	Type string `json:"type"`
-}

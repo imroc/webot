@@ -12,7 +12,7 @@ import (
 
 type Request struct {
 	*req.Request
-	msg        *SendMessage
+	msg        map[string]any
 	webhookUrl string
 }
 
@@ -20,13 +20,30 @@ func (c *Client) NewRequest(webhookUrl string) *Request {
 	return &Request{
 		Request:    c.client.R(),
 		webhookUrl: webhookUrl,
-		msg:        &SendMessage{},
+		msg:        make(map[string]any),
 	}
 }
 
+func (r *Request) SetMessage(msg map[string]any) *Request {
+	if len(msg) == 0 {
+		panic("Message can't be empty!")
+	}
+	r.msg = msg
+	return r
+}
+
+func (r *Request) SetMessageType(msgtype SendMessageType) *Request {
+	r.msg["msgtype"] = msgtype
+	return r
+}
+
 func (r *Request) Reply(msg CallbackMessageCommonItem) *Request {
-	r.msg.Chatid = msg.ChatId
-	r.msg.PostId = msg.PostId
+	if msg.ChatId != "" {
+		r.msg["chatid"] = msg.ChatId
+	}
+	if msg.PostId != "" {
+		r.msg["post_id"] = msg.PostId
+	}
 	return r
 }
 
@@ -55,8 +72,8 @@ func (r *Request) SendFileContent(filename string, content []byte) (err error) {
 	file := &FileMessage{
 		MediaId: upload.MediaId,
 	}
-	r.msg.Msgtype = SendMessageTypeFile
-	r.msg.File = file
+	r.SetMessageType(SendMessageTypeFile)
+	r.msg["file"] = file
 	return r.Send()
 }
 
@@ -88,13 +105,13 @@ func (r *Request) Upload(filename string, data []byte) (resp *UploadResponse, er
 }
 
 func (r *Request) SendMarkdown(markdown *MarkdownMessage) (err error) {
-	r.msg.Msgtype = SendMessageTypeMarkdown
-	r.msg.Markdown = markdown
+	r.SetMessageType(SendMessageTypeMarkdown)
+	r.msg["markdown"] = markdown
 	return r.Send()
 }
 
 func (r *Request) SendText(text *TextMessage) (err error) {
-	r.msg.Msgtype = SendMessageTypeText
-	r.msg.Text = text
+	r.SetMessageType(SendMessageTypeText)
+	r.msg["text"] = text
 	return r.Send()
 }
