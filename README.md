@@ -2,29 +2,31 @@
 
 webot 是根据企业微信机器人 [官方API文档](https://developer.work.weixin.qq.com/document/path/91770)，基于 [req](https://github.com/imroc/req) 封装的 golang SDK。
 
-## Install
+## 快速上手
+
+**Install**
 ```go
-go get -u github.com/imroc/webot/v2
+go get -u github.com/imroc/webot
 ```
 
-## Import
+**Import**
 
 ```go
-import github.com/imroc/webot/v2
+import github.com/imroc/webot
 ```
 
-## Client Usage
+**Usage**
 
 ```go
-client := webot.NewClient(webhookURL) // webhookURL 是添加机器人时自动生成的
-client.Debug(true) // 开启调试，可以看到所有请求和响应内容
+bot := webot.New(webhookURL) // webhookURL 是添加机器人时自动生成的
+bot.Debug(true) // 开启调试，可以看到所有请求和响应内容
 
 // 发送文本消息
-resp, err := client.SendTextContent("hello world")
+resp, err := bot.SendTextContent("hello world")
 // ...
 
 // 发送文本消息同时 @all
-resp, err = client.SendText(&webot.TextMessage{Content: "hello world", MentionedList: []string{"@all"}})
+resp, err = bot.SendText(&webot.TextMessage{Content: "hello world", MentionedList: []string{"@all"}})
 // ...
 
 // 发送 markdown 格式消息
@@ -34,16 +36,10 @@ content := `
 2. 富贵鸟皮鞋公司 - 已消费 <font color="green">18000</font> 元
 3. 帝王大酒店 - 已消费 <font color="green">3000</font> 元
 `
-resp, err = client.SendMarkdownContent(content)
+resp, err = bot.SendMarkdownContent(content)
 // ...
 
 // 发送文件消息
-resp, err := client.SendFileContent("hello.txt", []byte("hello world"))
+resp, err := bot.SendFileContent("hello.txt", []byte("hello world"))
 // ...
-```
-
-## Server Usage
-
-```go
-server := webot.NewServer(client, token, encodingAeskey, robotName)
 ```
