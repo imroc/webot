@@ -12,7 +12,12 @@ type Client struct {
 
 func NewClient() *Client {
 	return &Client{
-		client: req.C(),
+		client: req.C().SetResultStateCheckFunc(func(resp *req.Response) req.ResultState {
+			if errCode := resp.GetHeader("Error-Code"); errCode == "0" {
+				return req.SuccessState
+			}
+			return req.ErrorState
+		}),
 	}
 }
 
