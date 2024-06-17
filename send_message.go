@@ -36,3 +36,7 @@ type SendMessage struct {
 	PostId        string           `json:"post_id,omitempty"`
 	VisibleToUser string           `json:"visible_to_user,omitempty"`
 }
+
+type Layout struct {
+	Type string `json:"type"`
+}

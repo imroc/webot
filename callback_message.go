@@ -9,10 +9,13 @@ const (
 	CallbackMessageTypeMixed             CallbackMessageType = "mixed"
 	CallbackMessageTypeEvent             CallbackMessageType = "event"
 	CallbackMessageTypeTemplateCardEvent CallbackMessageType = "template_card_event"
+	CallbackMessageTypeInteraction       CallbackMessageType = "interaction"
+	CallbackMessageTypeModalSubmit       CallbackMessageType = "modal_submit"
 )
 
 type CallbackMessageCommonItem struct {
 	WebhookUrl     string              `xml:"WebhookUrl"`
+	CallbackId     *string             `xml:"CallbackId"`
 	ChatId         string              `xml:"ChatId"`
 	PostId         string              `xml:"PostId"`
 	ChatType       string              `xml:"ChatType"`
@@ -24,10 +27,12 @@ type CallbackMessageCommonItem struct {
 }
 
 type CallbackMessage struct {
-	Text       *Text       `xml:"Text,omitempty"`
-	Image      *Image      `xml:"Image,omitempty"`
-	Event      *Event      `xml:"Event,omitempty"`
-	Attachment *Attachment `xml:"Attachment,omitempty"`
+	Text        *Text        `xml:"Text,omitempty"`
+	Image       *Image       `xml:"Image,omitempty"`
+	Event       *Event       `xml:"Event,omitempty"`
+	Attachment  *Attachment  `xml:"Attachment,omitempty"`
+	Interaction *Interaction `xml:"Interaction,omitempty"`
+	ModalSubmit *ModalSubmit `xml:"ModalSubmit,omitempty"`
 	CallbackMessageCommonItem
 }
 
@@ -58,4 +63,14 @@ type Actions struct {
 	Name  string `xml:"Name"`
 	Value string `xml:"Value"`
 	Type  string `xml:"Type"`
+}
+
+type Interaction struct {
+	ReportData *string `xml:"ReportData"`
+	InputText  *string `xml:"InputText"`
+	InputJson  *string `xml:"InputJson"`
+}
+
+type ModalSubmit struct {
+	InputJson string `xml:"InputJson"`
 }
