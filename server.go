@@ -32,8 +32,9 @@ func NewServer(token, encodingAeskey, robotName string) *Server {
 		client:         NewClient(),
 	}
 }
+
 func (s *Server) GetClient() *Client {
-  returnn s.client
+	return s.client
 }
 
 func (s *Server) verifyURL(msgSignature, timestamp, nonce, echoStr string) ([]byte, error) {
