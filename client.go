@@ -33,8 +33,8 @@ func (client *Client) Client() *req.Client {
 	return client.client
 }
 
-func (client *Client) Debug(debug bool) {
-	if debug {
+func (client *Client) SetDumpRequest(dump bool) {
+	if dump {
 		client.client.EnableDumpAll().EnableDebugLog().EnableTraceAll()
 	} else {
 		client.client.DisableDebugLog().DisableDumpAll().DisableTraceAll()

@@ -33,10 +33,14 @@ func NewServer(token, encodingAeskey, robotName string) *Server {
 	}
 }
 
-// func (s *Server) SetDebug(debug bool) *s {
-// 	s.client.Debug(debug)
-// 	return s
-// }
+func (s *Server) GetClient() *Client {
+	return s.client
+}
+
+func (s *Server) SetLogger(logger Logger) *Server {
+	s.log = logger
+	return s
+}
 
 func (s *Server) verifyURL(msgSignature, timestamp, nonce, echoStr string) ([]byte, error) {
 	result, err := s.wxcpt.VerifyURL(msgSignature, timestamp, nonce, echoStr)

@@ -47,7 +47,7 @@ func (r *Request) Reply(msg CallbackMessageCommonItem) *Request {
 	return r
 }
 
-func (r *Request) Send() (err error) {
+func (r *Request) Send() error {
 	resp := &Response{}
 	res, err := r.
 		SetBodyJsonMarshal(r.msg).
@@ -55,13 +55,12 @@ func (r *Request) Send() (err error) {
 		SetSuccessResult(resp).
 		Post(r.webhookUrl)
 	if err != nil {
-		return
+		return err
 	}
 	if !res.IsSuccessState() || resp.Errcode != 0 {
-		err = fmt.Errorf("bad response:\n%s", res.Dump())
-		return
+		return fmt.Errorf("bad response:\n%s", res.Dump())
 	}
-	return
+	return nil
 }
 
 func (r *Request) SendFileContent(filename string, content []byte) (err error) {

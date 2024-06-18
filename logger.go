@@ -6,8 +6,6 @@ import (
 	"os"
 )
 
-// Logger is the abstract logging interface, gives control to
-// the Req users, choice of the logger.
 type Logger interface {
 	Errorf(format string, v ...interface{})
 	Warnf(format string, v ...interface{})
@@ -28,27 +26,10 @@ type logger struct {
 	l *log.Logger
 }
 
-func (l *logger) Errorf(format string, v ...interface{}) {
-	l.output("ERROR", format, v...)
-}
+func (l *logger) Errorf(format string, v ...interface{}) {}
 
-func (l *logger) Warnf(format string, v ...interface{}) {
-	l.output("WARN", format, v...)
-}
+func (l *logger) Warnf(format string, v ...interface{}) {}
 
-func (l *logger) Debugf(format string, v ...interface{}) {
-	l.output("DEBUG", format, v...)
-}
+func (l *logger) Debugf(format string, v ...interface{}) {}
 
-func (l *logger) Infof(format string, v ...interface{}) {
-	l.output("INFO", format, v...)
-}
-
-func (l *logger) output(level, format string, v ...interface{}) {
-	format = level + " [webot] " + format
-	if len(v) == 0 {
-		l.l.Print(format)
-		return
-	}
-	l.l.Printf(format, v...)
-}
+func (l *logger) Infof(format string, v ...interface{}) {}
